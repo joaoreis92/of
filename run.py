@@ -9,7 +9,7 @@ winW = 64
 winH = 64
 
 #run
-im,templates,la=cm.open_bounding_boxes(train_dir)
-test_im,_ =cm. get_test_imgs(test_dir)
-results = cm.classification(im,templates,la,winW,winH,0.2)
+im,rank_templates,rank_labels,suit_templates,suit_labels=cm.open_bounding_boxes(train_dir)
+test_im,_ =cm.get_test_imgs(test_dir)
+results = cm.classification(test_im,rank_templates,rank_labels,suit_templates,suit_labels)
 print(results)

@@ -12,7 +12,7 @@
 	</size>
 	<segmented>0</segmented>
 	<object>
-		<name>J</name>
+		<name>A</name>
 		<pose>Unspecified</pose>
 		<truncated>0</truncated>
 		<difficult>0</difficult>
@@ -21,6 +21,18 @@
 			<ymin>83</ymin>
 			<xmax>132</xmax>
 			<ymax>158</ymax>
+		</bndbox>
+	</object>
+	<object>
+		<name>S</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>84</xmin>
+			<ymin>157</ymin>
+			<xmax>134</xmax>
+			<ymax>206</ymax>
 		</bndbox>
 	</object>
 </annotation>

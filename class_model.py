@@ -41,6 +41,8 @@ def open_bounding_boxes(train_dir):
     images_inside_box = [] # List of all samples cropped at bouding box coordinates
     labels = [] # List of labels for all samples
     images = [] # Images (non cropped) for all samples
+    suit_images_inside_box = []
+    suit_labels = []
     for filename in sorted(os.listdir(train_dir)): # Reads files in train_dir
         if not filename.endswith('.xml'): continue #For ex if it's jpeg 
         fullname = os.path.join(train_dir, filename)
@@ -57,15 +59,20 @@ def open_bounding_boxes(train_dir):
                 img = cv2.imread(im_path)
             except:
                 continue
-
+                
             im_bound = img[ymin:ymax,xmin:xmax]
             im_bound = cv2.resize(im_bound, (0,0), fx=0.5, fy=0.5) #Resize the sample to half of its size 
-            images_inside_box.append(im_bound)
-            img = cv2.resize(img, (0,0), fx=0.5, fy=0.5) 
-            labels.append(label)
+            if label in ['H','D','S','C']:
+                suit_images_inside_box.append(im_bound)
+                suit_labels.append(label)
+            else:
+                images_inside_box.append(im_bound)
+                labels.append(label)
+        img = cv2.resize(img, (0,0), fx=0.5, fy=0.5)    
         images.append(img)
+            
         
-    return images,images_inside_box,labels
+    return images,images_inside_box,labels,suit_images_inside_box,suit_labels
 
 def get_test_imgs(test_imgs):
     """
@@ -80,10 +87,7 @@ def get_test_imgs(test_imgs):
         test_images.append(img)
     return test_images,sorted(os.listdir(test_imgs))
 
-
-# # Cards Model
-
-
+## Cards model
 
 class cards_model:
     """
@@ -94,11 +98,13 @@ class cards_model:
     def __init__(self,bow_size=200,C=1):
         self.bow_size=bow_size
         self.dict_vectorizer=DictVectorizer()
+        self.suit_dict_vectorizer=DictVectorizer()
         self.sift_cluster = KMeans(self.bow_size)
+        self.suit_sift_cluster = KMeans(20)
         self.dict_vect = None
         self.C = C
         self.model_number= LogisticRegression(C=self.C)
-        self.model_rank = SVC(C=self.C,probability=True,kernel='rbf',decision_function_shape='ovr')
+        self.model_suit = LogisticRegression(C=self.C)
                 
     def desc_sift_img_list(self,images):
         """
@@ -134,7 +140,7 @@ class cards_model:
         preprocessed_imgs = [cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) for img in list_images]
         return preprocessed_imgs
         
-    def feature_extraction(self,images,train=False):
+    def feature_extraction(self,images,sift_cluster,dictvec,train=False):
         """
         Manages feature extraction by calling methods to extract SIFT descrpitors 
         and to create the Bag-of-Words description. If train mode is True then it also trains a k-means clustering model
@@ -149,16 +155,16 @@ class cards_model:
         
         if train is True:
             concat_im = np.concatenate(features)
-            self.sift_cluster.fit(concat_im)
+            sift_cluster.fit(concat_im)
         
         feat_dict = self.create_bow(features)
         if train is True:
-            self.dict_vectorizer.fit(feat_dict) #Vectorize is required to work with scikit-learn API
+            dictvec.fit(feat_dict) #Vectorize is required to work with scikit-learn API
         
-        X = self.dict_vectorizer.transform(feat_dict)
+        X = dictvec.transform(feat_dict)
         return X
     
-    def train(self,list_images,labels):
+    def train(self,rank_images,rank_labels,suit_images,suit_labels):
         """
         Manages training process by calling preprocessing, feature extraction and model fit method.
         Input: list_images: List of training samples
@@ -166,12 +172,16 @@ class cards_model:
         Return: self.model_num: Model to classify a card number 
         
         """
-        preprocessed_imgs = self.preprocessing(list_images)
-        X = self.feature_extraction(preprocessed_imgs,train=True)
-        self.model_number.fit(X,labels)        
+        rank_preprocessed_imgs = self.preprocessing(rank_images)
+        rank_X = self.feature_extraction(rank_preprocessed_imgs,self.sift_cluster,self.dict_vectorizer,train=True)
+        self.model_number.fit(rank_X,rank_labels)
+        
+        suit_preprocessed_imgs = self.preprocessing(suit_images)
+        suit_X = self.feature_extraction(suit_preprocessed_imgs,self.suit_sift_cluster,self.suit_dict_vectorizer,train=True)
+        self.model_suit.fit(suit_X,suit_labels)   
         return self.model_number
     
-    def predict(self,list_images):
+    def predict(self,list_images,sift_cluster,dictvec,model):
         """
         Predicts the number of a playing card
         Input: list_images: List of images to classify
@@ -179,12 +189,12 @@ class cards_model:
                 preds_number: list with most probable class
         """
         preprocessed_imgs = self.preprocessing(list_images)
-        X = self.feature_extraction(preprocessed_imgs,train=False)
-        prob_preds_number = self.model_number.decision_function(X)
-        preds_number = self.model_number.predict(X)
+        X = self.feature_extraction(preprocessed_imgs,sift_cluster,dictvec,train=False)
+        prob_preds_number = model.decision_function(X)
+        preds_number = model.predict(X)
         return prob_preds_number,preds_number
     
-    def predict_proba(self,list_images,threshold=0):
+    def predict_proba(self,list_images,threshold=0,mode='rank'):
         """
          Similar to predict but returns a list of model output for each class  that is above a given threshold
          Input: list_images: images to be classified
@@ -192,8 +202,15 @@ class cards_model:
                 
          Return: list with model output for each class that is above a threshold
         """
-        preds_number,_ = self.predict(list_images)
-        preds_number.argmax(axis=1)
+        if mode=='rank':
+            preds_number,_ = self.predict(list_images,self.sift_cluster,self.dict_vectorizer,self.model_number)
+            preds_number.argmax(axis=1)
+            
+        if mode=='suit':
+            preds_number, pred = self.predict(list_images,self.suit_sift_cluster,self.suit_dict_vectorizer,self.model_suit)
+            return pred
+            #preds_number.argmax(axis=1)
+            
         return self.model_number.classes_[((preds_number > threshold) * preds_number).nonzero()[1]],preds_number[((preds_number > threshold) * preds_number).nonzero()]
     
     def show_predictions(self,list_images,image_names):
@@ -204,7 +221,6 @@ class cards_model:
         preds_number_pd = pd.DataFrame(preds_number,index=image_names)
         preds_number_pd.columns = self.model_number.classes_        
         return preds_number_pd
-
 
 # # Pyramid and Sliding window classifier
 
@@ -250,7 +266,7 @@ def sliding_window(image, stepSize, windowSize):
             sliding_windows.append((x, y, image[y:y + windowSize[1], x:x + windowSize[0]]))
     return sliding_windows
 
-def slide(image,cm,winW, winH,threshold=0):
+def slide(image,cm,winW,winH,threshold=0):
     """
     Calls the classification model for each window of each image pyramide.
     Input: image: image to be classified
@@ -258,6 +274,7 @@ def slide(image,cm,winW, winH,threshold=0):
            threshold: threshold value for predict_proba method
     Return: dict_results: Dictionary with highest confidence for each class that is above threshold
     """
+    maxVal = [('A',0)]
     results = []
     dict_results = {}
     # loop over the image pyramid
@@ -272,11 +289,14 @@ def slide(image,cm,winW, winH,threshold=0):
             _ , desc = sift.detectAndCompute(window, None)
             if desc is None:
                 continue
-            result = cm.predict_proba([window],threshold)
-
-            
+            result = cm.predict_proba([window],threshold,'rank')
+            suit = cm.predict_proba([window],threshold,'suit')
             if len(result[0])>0:
+                    res_rank = str(result[0][0])
+                    rank_suit = res_rank+str(suit[0])
+                    result[0][0]= np.str(rank_suit)
                     results.append(result)
+                    
                    
 
     for (i,j) in results:
@@ -287,7 +307,7 @@ def slide(image,cm,winW, winH,threshold=0):
             dict_results[i[0]]=float(j)
     return dict_results
 
-def classification(images,templates,true_labels,winW=64,winH=64,threshold=0):
+def classification(images,rank_templates,rank_true_labels,suit_templates,suit_true_labels,winW=64,winH=64,threshold=0.2):
     """
     Classification main function. Creates model and sequentially tries to predict an image number.
     Input: images:list of images to be predicted
@@ -297,11 +317,12 @@ def classification(images,templates,true_labels,winW=64,winH=64,threshold=0):
     """
     pred_labels=[]
     cm = cards_model()
-    cm.train(templates,true_labels)
+    cm.train(rank_templates,rank_true_labels,suit_templates,suit_true_labels)
     for curr_img in images:
         result = slide(curr_img,cm,winW,winH,threshold)
         pred_labels.append(result)
     return pred_labels
+
 
 
 
