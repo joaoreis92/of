@@ -1,0 +1,26 @@
+<annotation>
+	<folder>training</folder>
+	<filename>11.jpg</filename>
+	<path>/home/joao/onfido_task/data/training/11.jpg</path>
+	<source>
+		<database>Unknown</database>
+	</source>
+	<size>
+		<width>482</width>
+		<height>758</height>
+		<depth>3</depth>
+	</size>
+	<segmented>0</segmented>
+	<object>
+		<name>5</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>74</xmin>
+			<ymin>98</ymin>
+			<xmax>119</xmax>
+			<ymax>171</ymax>
+		</bndbox>
+	</object>
+</annotation>

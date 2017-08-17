@@ -1,0 +1,17 @@
+08.jpg:9:D
+09.jpg:Q:D
+10.jpg:A:H
+11.jpg:5:H
+12.jpg:K:H
+20161026_165945.jpg:8:S
+20161026_165945.jpg:7:S
+01.jpg:A:C
+02.jpg:3:C
+03.jpg:J:C
+04.jpg:A:S
+05.jpg:10:C
+05.jpg:2:C
+05.jpg:3:D
+05(1).jpg:2:S
+06.jpg:Q:S
+07.jpg:A:H
